@@ -55,169 +55,47 @@ class FoodDatabaseMigrator:
             raise ValueError("Please set SUPABASE_URL and SUPABASE_ANON_KEY in your .env file")
         
         self.supabase: Client = create_client(self.supabase_url, self.supabase_key)
-        self.data_dir = "kaggle"
-        self.chunk_size = 1000  # Process 1000 rows at a time
+        self.data_dir = os.getenv('DATA_DIR', 'kaggle')
+        
+        # Configurable batch sizes from .env
+        self.recipes_batch_size = int(os.getenv('RECIPES_BATCH_SIZE', '250'))
+        self.interactions_batch_size = int(os.getenv('INTERACTIONS_BATCH_SIZE', '800'))
+        self.pp_recipes_batch_size = int(os.getenv('PP_RECIPES_BATCH_SIZE', '1000'))
+        self.pp_users_batch_size = int(os.getenv('PP_USERS_BATCH_SIZE', '1000'))
         
     def create_database_schema(self) -> None:
-        """Create the database schema in Supabase"""
-        logger.info("Creating database schema...")
-        
-        # SQL statements to create tables
-        schema_sql = """
-        -- Enable necessary extensions
-        CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-        
-        -- Create recipes table
-        CREATE TABLE IF NOT EXISTS recipes (
-            id BIGINT PRIMARY KEY,
-            name TEXT NOT NULL,
-            minutes INTEGER,
-            contributor_id BIGINT,
-            submitted DATE,
-            tags TEXT[],
-            nutrition JSONB,
-            n_steps INTEGER,
-            steps TEXT[],
-            description TEXT,
-            ingredients TEXT[],
-            n_ingredients INTEGER,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
-        
-        -- Create users table (from interactions)
-        CREATE TABLE IF NOT EXISTS users (
-            user_id BIGINT PRIMARY KEY,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
-        
-        -- Create interactions table
-        CREATE TABLE IF NOT EXISTS interactions (
-            id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-            user_id BIGINT NOT NULL,
-            recipe_id BIGINT NOT NULL,
-            date DATE,
-            rating DECIMAL(2,1),
-            review TEXT,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            FOREIGN KEY (user_id) REFERENCES users(user_id),
-            FOREIGN KEY (recipe_id) REFERENCES recipes(id)
-        );
-        
-        -- Create preprocessed recipes table
-        CREATE TABLE IF NOT EXISTS pp_recipes (
-            recipe_id BIGINT PRIMARY KEY,
-            techniques INTEGER[],
-            items INTEGER[],
-            n_items INTEGER,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            FOREIGN KEY (recipe_id) REFERENCES recipes(id)
-        );
-        
-        -- Create preprocessed users table
-        CREATE TABLE IF NOT EXISTS pp_users (
-            user_id BIGINT PRIMARY KEY,
-            techniques INTEGER[],
-            items INTEGER[],
-            n_items INTEGER,
-            ratings DECIMAL(2,1)[],
-            n_ratings INTEGER,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            FOREIGN KEY (user_id) REFERENCES users(user_id)
-        );
-        
-        -- Create indexes for better performance
-        CREATE INDEX IF NOT EXISTS idx_interactions_user_id ON interactions(user_id);
-        CREATE INDEX IF NOT EXISTS idx_interactions_recipe_id ON interactions(recipe_id);
-        CREATE INDEX IF NOT EXISTS idx_interactions_rating ON interactions(rating);
-        CREATE INDEX IF NOT EXISTS idx_recipes_submitted ON recipes(submitted);
-        CREATE INDEX IF NOT EXISTS idx_recipes_minutes ON recipes(minutes);
-        CREATE INDEX IF NOT EXISTS idx_recipes_n_ingredients ON recipes(n_ingredients);
-        
-        -- Create updated_at trigger function
-        CREATE OR REPLACE FUNCTION update_updated_at_column()
-        RETURNS TRIGGER AS $$
-        BEGIN
-            NEW.updated_at = NOW();
-            RETURN NEW;
-        END;
-        $$ language 'plpgsql';
-        
-        -- Create triggers for updated_at
-        CREATE TRIGGER update_recipes_updated_at BEFORE UPDATE ON recipes
-            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-        CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        """Inform the user how to create the database schema.
+
+        PostgREST does not allow DDL via the anon key. Please run `schema.sql`
+        in the Supabase SQL editor (or use a service-role connection) once
+        before importing data.
         """
-        
-        try:
-            # Execute schema creation
-            result = self.supabase.rpc('exec_sql', {'sql': schema_sql})
-            logger.info("Database schema created successfully")
-        except Exception as e:
-            logger.error(f"Error creating schema: {e}")
-            # Try alternative approach - create tables individually
-            self._create_tables_individually()
+        logger.info(
+            "Schema creation requires running schema.sql in the Supabase SQL editor. "
+            "Open your project → SQL Editor → paste contents of schema.sql → Run."
+        )
     
     def _create_tables_individually(self) -> None:
-        """Create tables individually if bulk creation fails"""
-        logger.info("Creating tables individually...")
-        
-        tables = [
-            {
-                'name': 'recipes',
-                'sql': '''
-                CREATE TABLE IF NOT EXISTS recipes (
-                    id BIGINT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    minutes INTEGER,
-                    contributor_id BIGINT,
-                    submitted DATE,
-                    tags TEXT[],
-                    nutrition JSONB,
-                    n_steps INTEGER,
-                    steps TEXT[],
-                    description TEXT,
-                    ingredients TEXT[],
-                    n_ingredients INTEGER,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-                );
-                '''
-            },
-            {
-                'name': 'users',
-                'sql': '''
-                CREATE TABLE IF NOT EXISTS users (
-                    user_id BIGINT PRIMARY KEY,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-                );
-                '''
-            },
-            {
-                'name': 'interactions',
-                'sql': '''
-                CREATE TABLE IF NOT EXISTS interactions (
-                    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-                    user_id BIGINT NOT NULL,
-                    recipe_id BIGINT NOT NULL,
-                    date DATE,
-                    rating DECIMAL(2,1),
-                    review TEXT,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-                );
-                '''
-            }
-        ]
-        
-        for table in tables:
-            try:
-                self.supabase.rpc('exec_sql', {'sql': table['sql']})
-                logger.info(f"Created table: {table['name']}")
-            except Exception as e:
-                logger.error(f"Error creating table {table['name']}: {e}")
+        """No-op placeholder retained for backward compatibility."""
+        logger.info(
+            "Skipping programmatic DDL. Please apply schema.sql in the Supabase SQL editor."
+        )
+
+    def ensure_schema_exists(self) -> None:
+        """Check that core tables exist; if missing, instruct the user to apply schema."""
+        try:
+            # Minimal select to trigger PGRST205 if table is missing
+            self.supabase.table('recipes').select('id').limit(1).execute()
+            logger.info("Schema detected in Supabase (recipes table exists).")
+        except Exception as e:
+            message = str(e)
+            if 'PGRST205' in message or 'Could not find the table' in message or '404' in message:
+                logger.error(
+                    "Database schema not found. Please open your Supabase project, go to SQL Editor, "
+                    "paste the contents of schema.sql from your repository, and run it once."
+                )
+                raise
+            raise
     
     def parse_list_field(self, field: str) -> List[str]:
         """Parse string representation of list into actual list"""
@@ -262,6 +140,16 @@ class FoodDatabaseMigrator:
     
     def parse_json_field(self, field: str) -> Optional[Dict]:
         """Parse string representation of JSON into actual JSON"""
+    def to_date_string(self, value: Any) -> Optional[str]:
+        """Convert various date representations to ISO date string (YYYY-MM-DD)."""
+        if pd.isna(value) or value == '':
+            return None
+        try:
+            dt = pd.to_datetime(value)
+            # Only date part
+            return dt.date().isoformat()
+        except Exception:
+            return None
         if pd.isna(field) or field == '':
             return None
         
@@ -293,7 +181,7 @@ class FoodDatabaseMigrator:
             logger.info(f"Total recipes to process: {total_rows}")
             
             # Process in chunks
-            chunk_iter = pd.read_csv(file_path, chunksize=self.chunk_size, encoding='utf-8')
+            chunk_iter = pd.read_csv(file_path, chunksize=self.recipes_batch_size, encoding='utf-8')
             
             for chunk_idx, chunk in enumerate(chunk_iter):
                 logger.info(f"Processing recipes chunk {chunk_idx + 1}...")
@@ -308,7 +196,7 @@ class FoodDatabaseMigrator:
                             'name': str(row['name']).strip(),
                             'minutes': int(row['minutes']) if pd.notna(row['minutes']) else None,
                             'contributor_id': int(row['contributor_id']) if pd.notna(row['contributor_id']) else None,
-                            'submitted': pd.to_datetime(row['submitted']).date() if pd.notna(row['submitted']) else None,
+                            'submitted': self.to_date_string(row['submitted']),
                             'tags': self.parse_list_field(row['tags']),
                             'nutrition': self.parse_json_field(row['nutrition']),
                             'n_steps': int(row['n_steps']) if pd.notna(row['n_steps']) else None,
@@ -366,7 +254,7 @@ class FoodDatabaseMigrator:
             logger.info(f"Total interactions to process: {total_rows}")
             
             # Process in chunks
-            chunk_iter = pd.read_csv(file_path, chunksize=self.chunk_size, encoding='utf-8')
+            chunk_iter = pd.read_csv(file_path, chunksize=self.interactions_batch_size, encoding='utf-8')
             
             for chunk_idx, chunk in enumerate(chunk_iter):
                 logger.info(f"Processing interactions chunk {chunk_idx + 1}...")
@@ -385,7 +273,7 @@ class FoodDatabaseMigrator:
                         interaction_data = {
                             'user_id': user_id,
                             'recipe_id': recipe_id,
-                            'date': pd.to_datetime(row['date']).date() if pd.notna(row['date']) else None,
+                            'date': self.to_date_string(row['date']),
                             'rating': float(row['rating']) if pd.notna(row['rating']) and row['rating'] != 0 else None,
                             'review': str(row['review']).strip() if pd.notna(row['review']) else None
                         }
@@ -461,12 +349,11 @@ class FoodDatabaseMigrator:
                     continue
             
             # Insert in batches
-            batch_size = 1000
-            for i in range(0, len(pp_recipes_data), batch_size):
-                batch = pp_recipes_data[i:i + batch_size]
+            for i in range(0, len(pp_recipes_data), self.pp_recipes_batch_size):
+                batch = pp_recipes_data[i:i + self.pp_recipes_batch_size]
                 try:
                     self.supabase.table('pp_recipes').upsert(batch).execute()
-                    logger.info(f"Inserted PP recipes batch {i//batch_size + 1}")
+                    logger.info(f"Inserted PP recipes batch {i//self.pp_recipes_batch_size + 1}")
                 except Exception as e:
                     logger.error(f"Error inserting PP recipes batch: {e}")
             
@@ -506,12 +393,11 @@ class FoodDatabaseMigrator:
                     continue
             
             # Insert in batches
-            batch_size = 1000
-            for i in range(0, len(pp_users_data), batch_size):
-                batch = pp_users_data[i:i + batch_size]
+            for i in range(0, len(pp_users_data), self.pp_users_batch_size):
+                batch = pp_users_data[i:i + self.pp_users_batch_size]
                 try:
                     self.supabase.table('pp_users').upsert(batch).execute()
-                    logger.info(f"Inserted PP users batch {i//batch_size + 1}")
+                    logger.info(f"Inserted PP users batch {i//self.pp_users_batch_size + 1}")
                 except Exception as e:
                     logger.error(f"Error inserting PP users batch: {e}")
             
@@ -557,6 +443,8 @@ class FoodDatabaseMigrator:
         try:
             # Create database schema
             self.create_database_schema()
+            # Ensure schema exists before proceeding
+            self.ensure_schema_exists()
             
             # Migrate data in order (respecting foreign key constraints)
             self.migrate_recipes()
