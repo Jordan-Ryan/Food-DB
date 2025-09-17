@@ -1,0 +1,4 @@
+.env
+# Kaggle dataset files (too large for GitHub)
+kaggle/*.csv
+kaggle/*.pkl
