@@ -1,41 +1,26 @@
-# Kaggle Dataset Files
+# Kaggle CSV files
 
-This folder should contain the Food.com dataset files from Kaggle.
+`setup_migration.py` and `test_migration.py` look in this directory for:
 
-## How to Get the Dataset
+- `RAW_recipes.csv`
+- `RAW_interactions.csv`
+- `PP_recipes.csv`
+- `PP_users.csv`
 
-1. Go to [Food.com Recipes and User Interactions](https://www.kaggle.com/datasets/shuyangli94/food-com-recipes-and-user-interactions/data)
-2. Download the dataset files
-3. Extract them to this `kaggle/` folder
+`supabase_migration.py` reads the same four names from `DATA_DIR` (default `kaggle`).
 
-## Required Files
+The files are not in git. `.gitignore` does not list `kaggle/` or `*.csv`.
 
-The migration script expects these files:
+Download the dataset from [Food.com Recipes and User Interactions](https://www.kaggle.com/datasets/shuyangli94/food-com-recipes-and-user-interactions/data) and extract the four CSVs here.
 
-- `RAW_recipes.csv` - Main recipe data (231K recipes)
-- `RAW_interactions.csv` - User ratings and reviews (1.1M records)
-- `PP_recipes.csv` - Preprocessed recipe data
-- `PP_users.csv` - Preprocessed user data
-- `interactions_train.csv` - Training split
-- `interactions_validation.csv` - Validation split
-- `interactions_test.csv` - Test split
-- `ingr_map.pkl` - Ingredient mapping file
+That dataset also includes `interactions_train.csv`, `interactions_validation.csv`, `interactions_test.csv`, and `ingr_map.pkl`. No script in this repository opens those files.
 
-## File Sizes
-
-These files are quite large (800MB+ total) and are excluded from Git due to size limits:
-- `RAW_recipes.csv` - ~281MB
-- `RAW_interactions.csv` - ~333MB
-- `PP_recipes.csv` - ~195MB
-- `PP_users.csv` - ~13MB
-- `interactions_train.csv` - ~27MB
-
-## Setup
-
-Once you have the files in this folder, you can run the migration:
+After the four required CSVs are in this folder:
 
 ```bash
-python3 setup_migration.py  # Setup environment
-python3 test_migration.py   # Test the setup
-python3 supabase_migration.py  # Run the migration
+python3 setup_migration.py
+python3 test_migration.py
+python3 supabase_migration.py
 ```
+
+Apply `schema.sql` in the Supabase SQL editor before `test_migration.py` and `supabase_migration.py`. Step-by-step environment variables and script behavior are in [QUICK_START.md](../QUICK_START.md).

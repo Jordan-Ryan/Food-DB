@@ -1,187 +1,68 @@
-# Food.com Dataset - Supabase Integration
+# Food-DB
 
-A comprehensive food recipe dataset migrated to Supabase with complete API documentation and example applications.
+Python scripts and a SQL file for loading the [Food.com Recipes and User Interactions](https://www.kaggle.com/datasets/shuyangli94/food-com-recipes-and-user-interactions/data) CSVs into a Supabase project.
 
-## 📊 Dataset Overview
+`test_migration.py` and `supabase_migration.py` load `SUPABASE_URL` and `SUPABASE_ANON_KEY` from a `.env` file. This repository does not include `.env`, the CSV data, or an import log.
 
-- **231,637 recipes** with full details (ingredients, steps, nutrition, tags)
-- **226,570 users** with interaction history
-- **1,133,167 interactions** (ratings and reviews)
-- **Pre-built views** for popular recipes, active users, and recipe statistics
-
-## 🚀 Quick Start
-
-1. **Read the Quick Start Guide**: [QUICK_START.md](./QUICK_START.md)
-2. **Browse the Full Documentation**: [API_DOCUMENTATION.md](./API_DOCUMENTATION.md)
-3. **Check out Examples**: [examples/](./examples/) folder
-
-## 📁 Project Structure
+## Layout
 
 ```
 Food-DB/
-├── README.md                    # This file
-├── QUICK_START.md              # 5-minute setup guide
-├── API_DOCUMENTATION.md        # Complete API documentation
-├── schema.sql                  # Database schema
-├── supabase_migration.py       # Migration script
-├── .env                        # Environment variables
-├── requirements.txt            # Python dependencies
-└── examples/                   # Example applications
-    ├── react-example.jsx       # React web app
-    ├── react-native-example.js # React Native mobile app
-    ├── flutter-example.dart    # Flutter mobile app
-    └── api-examples.js         # JavaScript API examples
+├── README.md
+├── QUICK_START.md                 # setup and run steps
+├── API_DOCUMENTATION.md           # tables and views in schema.sql
+├── AGENTS.md
+├── docs/STATE.md
+├── schema.sql
+├── requirements.txt
+├── setup_migration.py
+├── test_migration.py
+├── supabase_migration.py
+├── kaggle/README.md               # CSV filenames the scripts open
+└── examples/                      # client snippets, not a packaged app
+    ├── api-examples.js
+    ├── react-example.jsx
+    ├── react-native-example.js
+    └── flutter-example.dart
 ```
 
-## 🔧 Setup
+## Setup and run
 
-### Prerequisites
-- Supabase project with the migrated dataset
-- Your Supabase URL and API keys
+Follow [QUICK_START.md](./QUICK_START.md). In short, from the repository root:
 
-### Environment Variables
-```bash
-SUPABASE_URL=https://qunbglfspdhzlmkrdqxc.supabase.co
-SUPABASE_ANON_KEY=your-anon-key-here
-```
+1. Put the four CSVs named in [kaggle/README.md](./kaggle/README.md) in `kaggle/`.
+2. Run `python3 setup_migration.py` (requires Python 3.8+). It installs `requirements.txt` with the current interpreter and creates `.env` when that file is absent.
+3. Fill in `.env`.
+4. Run `schema.sql` in the Supabase SQL editor. `supabase_migration.py` does not execute that DDL.
+5. Run `python3 test_migration.py`, then `python3 supabase_migration.py`.
 
-## 📱 Example Applications
+`setup_migration.py` prints `python supabase_migration.py`. The files use `#!/usr/bin/env python3`.
 
-### Web App (React)
-```bash
-npx create-react-app food-app
-cd food-app
-npm install @supabase/supabase-js
-# Copy examples/react-example.jsx to src/App.js
-```
+## What the import script does
 
-### Mobile App (React Native)
-```bash
-npx react-native init FoodApp
-cd FoodApp
-npm install @supabase/supabase-js react-native-url-polyfill
-# Copy examples/react-native-example.js to your component
-```
+`supabase_migration.py` logs to stdout and to `migration.log`. After the schema check it calls, in order:
 
-### Mobile App (Flutter)
-```bash
-flutter create food_app
-cd food_app
-# Add supabase_flutter to pubspec.yaml
-# Copy examples/flutter-example.dart to lib/main.dart
-```
+1. `migrate_recipes` — `RAW_recipes.csv`, upsert into `recipes`
+2. `migrate_interactions` — `RAW_interactions.csv`, upsert into `users` then `interactions`
+3. `migrate_pp_recipes` — `PP_recipes.csv`, upsert into `pp_recipes`
+4. `migrate_pp_users` — `PP_users.csv`, upsert into `pp_users`
+5. `verify_migration` — logs the `count` returned for each of those tables
 
-## 🔍 Common Use Cases
+Batch sizes and the data directory come from the environment variables listed in [QUICK_START.md](./QUICK_START.md). `test_migration.py` and `setup_migration.py` always look in `kaggle/`.
 
-### Recipe Discovery
-- Search by name, ingredients, or tags
-- Filter by cooking time and complexity
-- Browse popular and trending recipes
+`schema.sql` defines `recipes`, `users`, `interactions`, `pp_recipes`, `pp_users`, indexes, `updated_at` triggers on `recipes` and `users`, and the views `popular_recipes`, `active_users`, and `recipe_stats`. Column lists are in [API_DOCUMENTATION.md](./API_DOCUMENTATION.md).
 
-### User Interactions
-- Rate and review recipes
-- Track user preferences
-- Generate personalized recommendations
+## Example files
 
-### Analytics
-- Recipe popularity metrics
-- User engagement statistics
-- Cuisine and ingredient analysis
+`examples/` holds single-file client snippets. This repository has no `package.json`, `pubspec.yaml`, or other app manifest. Each snippet contains the host `https://qunbglfspdhzlmkrdqxc.supabase.co` and the placeholder `your-anon-key-here`. The Python scripts do not read those strings.
 
-## 📊 Database Schema
+## Dependencies
 
-### Core Tables
-- `recipes` - Complete recipe information
-- `users` - User profiles
-- `interactions` - Ratings and reviews
+Pinned in `requirements.txt`:
 
-### Useful Views
-- `popular_recipes` - Recipes with high ratings and review counts
-- `active_users` - Users with significant activity
-- `recipe_stats` - Comprehensive recipe statistics
+- `supabase==2.3.4`
+- `pandas==2.1.4`
+- `numpy==1.24.3`
+- `python-dotenv==1.0.0`
 
-## 🛠️ API Examples
-
-### Basic Queries
-```javascript
-// Get recipes
-const recipes = await supabase
-  .from('recipes')
-  .select('*')
-  .limit(20)
-
-// Search recipes
-const results = await supabase
-  .from('recipes')
-  .select('*')
-  .ilike('name', '%pasta%')
-
-// Get popular recipes
-const popular = await supabase
-  .from('popular_recipes')
-  .select('*')
-  .limit(10)
-```
-
-### User Interactions
-```javascript
-// Add a rating
-await supabase
-  .from('interactions')
-  .insert({
-    user_id: 123,
-    recipe_id: 456,
-    rating: 4.5,
-    review: 'Delicious!'
-  })
-
-// Get user's ratings
-const ratings = await supabase
-  .from('interactions')
-  .select(`
-    rating,
-    review,
-    recipes (name, minutes)
-  `)
-  .eq('user_id', 123)
-```
-
-## 🔒 Security
-
-- Row Level Security (RLS) enabled on sensitive tables
-- API keys properly configured for client-side use
-- Input validation and error handling included
-
-## 📈 Performance
-
-- Optimized batch sizes for large datasets
-- Efficient indexing on frequently queried columns
-- Pagination support for large result sets
-- Caching strategies for improved performance
-
-## 🆘 Support
-
-- **Documentation**: [API_DOCUMENTATION.md](./API_DOCUMENTATION.md)
-- **Quick Start**: [QUICK_START.md](./QUICK_START.md)
-- **Examples**: [examples/](./examples/) folder
-- **Supabase Docs**: [supabase.com/docs](https://supabase.com/docs)
-
-## 📝 Migration Notes
-
-The dataset was successfully migrated with the following results:
-- ✅ 231,637 recipes imported
-- ✅ 226,570 users imported  
-- ✅ 1,133,167 interactions imported
-- ⚠️ Preprocessed tables had parsing issues (non-critical)
-
-## 🎯 Next Steps
-
-1. **Explore the examples** in the `examples/` folder
-2. **Customize the queries** for your specific use case
-3. **Add authentication** if user management is needed
-4. **Implement caching** for better performance
-5. **Add real-time features** using Supabase subscriptions
-
----
-
-*Built with ❤️ using Supabase and the Food.com dataset*
+`supabase_migration.py` imports `numpy` and does not reference it again.
